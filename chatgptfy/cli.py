@@ -86,57 +86,61 @@ def clear_history() -> None:
         json.dump([], f)
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--clear",
-                        help="Clears the question history",
-                        action="store_true")
-    parser.add_argument("--role", help="Act as a role", type=str)
-    parser.add_argument("--maxtokens", help="Max tokens to consume.", type=int)
-    parser.add_argument("--message", help="Message to ChatGPT", type=str)
-    parser.add_argument("-q", "--quiet", help="Quiet mode", action="store_true")
-    args = parser.parse_args()
+def main() -> None:
+    try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--clear",
+                            help="Clears the question history",
+                            action="store_true")
+        parser.add_argument("-r", "--role", help="Act as a role", type=str)
+        parser.add_argument("-t", "--maxtokens", help="Max tokens to consume.", type=int)
+        parser.add_argument("-m", "--message", help="Message to ChatGPT", type=str)
+        parser.add_argument("-q", "--quiet", help="Quiet mode", action="store_true")
+        args = parser.parse_args()
 
-    if args.clear:
-        clear_history()
-        print("History cleared.")
-        sys.exit()
+        if args.clear:
+            clear_history()
+            print("History cleared.")
+            sys.exit()
 
-    act_as.setdefault(args.role, {
+        act_as.setdefault(args.role, {
+                "role": "system",
+                "content": f"You are {args.role}.",
+            })
+
+        history = load_history()
+        question = ""
+
+        if sys.stdin.isatty() and not args.message and not args.quiet:
+            print("Enter your question:")
+            question = input()
+        elif args.message:
+            question = args.message
+        else:
+            question = input()
+
+        messages = [{
             "role": "system",
-            "content": f"You are {args.role}.",
-        })
+            "content": "I want yout to act as an ChatGPT assistant.",
+        }]
+        for entry in history:
+            messages.append({"role": "user", "content": f"Q: {entry['question']}"})
+            messages.append({"role": "assistant",
+                             "content": f"A: {entry['answer']}"})
+        messages = [act_as[args.role]]
+        messages.append({"role": "user", "content": question})
 
-    history = load_history()
-    question = ""
-    if sys.stdin.isatty() and not args.message and not args.quiet:
-        print("Enter your question:")
-        question = input()
-    elif args.message:
-        question = args.message
-    else:
-        question = input()
+        answer = send_question_to_chatgpt_api(messages, max_tokens=args.maxtokens)
 
-    messages = [{
-        "role": "system",
-        "content": "I want yout to act as an ChatGPT assistant.",
-    }]
-    for entry in history:
-        messages.append({"role": "user", "content": f"Q: {entry['question']}"})
-        messages.append({"role": "assistant",
-                         "content": f"A: {entry['answer']}"})
-    messages = [act_as[args.role]]
-    messages.append({"role": "user", "content": question})
+        history.append({"question": question, "answer": answer})
+        save_history(history)
 
-    answer = send_question_to_chatgpt_api(messages, max_tokens=args.maxtokens)
-
-    history.append({"question": question, "answer": answer})
-    save_history(history)
-
-    if sys.stdin.isatty() and not args.quiet:
-        print(f"Answer:\n{answer}")
-    else:
-        print(f"{answer}")
+        if sys.stdin.isatty() and not args.quiet:
+            print(f"Answer:\n{answer}")
+        else:
+            print(f"{answer}")
+    except KeyboardInterrupt:
+        print("bye!")
 
 
 if __name__ == "__main__":
