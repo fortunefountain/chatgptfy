@@ -6,7 +6,8 @@ from typing import List, Dict
 import os
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-HISTORY_FILENAME = "/home/zorba/.chatgpt/history.json"
+HOME = os.environ.get("HOME")
+HISTORY_FILENAME = "{}/.chatgpt/history.json".format(HOME)
 openai.api_key = OPENAI_API_KEY
 
 act_as = {
