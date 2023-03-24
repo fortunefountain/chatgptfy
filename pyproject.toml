@@ -11,6 +11,8 @@ chatgptfy = "chatgptfy.cli:main"
 [tool.poetry.dependencies]
 python = "^3.10"
 openai = "^0.27.2"
+sqlalchemy-migrate = "^0.13.0"
+sqlalchemy = "^2.0.7"
 
 
 [build-system]
