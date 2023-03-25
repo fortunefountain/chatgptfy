@@ -6,7 +6,7 @@ import sys
 import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base, Context, Message, Template
+from chatgptfy.models import Base, Context, Message, Template
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HOME = os.environ.get("HOME")
