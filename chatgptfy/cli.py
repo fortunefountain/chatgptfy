@@ -83,7 +83,7 @@ class Chatgptfy:
 @click.option('--max-tokens', default=150, help='Max tokens to use')
 @click.option('--temperature', default=0.5, help='Temperature to use')
 @click.option('--list-contexts', help='List contexts')
-@click.option('--list-messages', default='default', help='List messages for context')
+@click.option('--list-messages', help='List messages for context')
 @click.option('--init-db', is_flag=True)
 @click.option('--drop-db', is_flag=True)
 def main(system,
