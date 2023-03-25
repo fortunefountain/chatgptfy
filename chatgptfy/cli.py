@@ -6,6 +6,7 @@ import sys
 import time
 import requests
 from sqlalchemy import create_engine
+from sqlalchemy import select, and_, or_
 from sqlalchemy.orm import sessionmaker
 from chatgptfy.models import Base, Context, Message, Template
 
@@ -37,8 +38,10 @@ class Chatgptfy:
         contexts = session.query(Context).all()
         return contexts
 
-    def get_messages(self, context):
-        return context.messages
+    def get_messages(self, session, context, limit=5):
+        system_messages = [message for message in context.messages if message.role == 'system']
+        non_system_messages = [message for message in context.messages if message.role != 'system']
+        return system_messages + non_system_messages[0:limit]
 
     def get_message_from_template(self, session, template_name):
         template = session.query(Template).filter_by(template_name=template_name).first()
@@ -122,6 +125,7 @@ class Chatgptfy:
               " from awesome-chatgpt-prompts")
 @click.option('--context-name', help='Context to use')
 @click.option('--message', help='Message to send')
+@click.option('--message-limit', default=5, help='Message limit')
 @click.option('--max-tokens', default=150, help='Max tokens to use')
 @click.option('--temperature', default=0.5, help='Temperature to use')
 @click.option('--list-contexts', is_flag=True, help='List contexts')
@@ -135,6 +139,7 @@ def main(system,
          load_templates,
          context_name,
          message,
+         message_limit,
          max_tokens,
          temperature,
          list_contexts,
@@ -171,7 +176,7 @@ def main(system,
         context = chatgptfy.get_context(session, list_messages)
         if context is None:
             raise Exception("Context not found")
-        messages = chatgptfy.get_messages(context)
+        messages = chatgptfy.get_messages(session, context, message_limit)
         for message in messages:
             print("{}: {}".format(message.role, message.content))
         return
@@ -203,7 +208,7 @@ def main(system,
             context = chatgptfy.get_context(session, context_name)
             if context is None:
                 context = chatgptfy.add_context(session, context_name)
-        messages = chatgptfy.get_messages(context)
+        messages = chatgptfy.get_messages(session, context)
         message_obj = None
         if template is not None:
             message_obj = chatgptfy.get_message_from_template(session, template)
