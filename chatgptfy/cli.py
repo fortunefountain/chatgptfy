@@ -2,6 +2,7 @@ import openai
 import os
 import click
 import csv
+import sys
 import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -167,7 +168,14 @@ def main(system,
         for message in messages:
             print("{}: {}".format(message.role, message.content))
         return
+    if sys.stdin.isatty() and not message:
+        print("Enter your question: ")
+        message = input()
+    elif message:
+        message = message
     else:
+        message = input()
+    try:
         session = chatgptfy.get_session()
         context = None
         if context_name is None:
@@ -201,7 +209,8 @@ def main(system,
                               context,
                               response)
         print(response.content)
-
+    except Exception as e:
+        print(e)
 
 if __name__ == "__main__":
     main()
