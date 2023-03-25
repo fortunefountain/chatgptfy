@@ -12,8 +12,13 @@ Base = declarative_base()
 class Context(Base):
     __tablename__ = 'context'
     id = Column(Integer, primary_key=True)
-    messages = relationship('Message', back_populates='context')
-    title = Column(String(50))
+    messages = relationship('Message',
+                            back_populates='context',
+                            cascade="all, delete-orphan",
+                            order_by='Message.id'
+                            )
+    title = Column(String(50), nullable=False, unique=True)
+
 
     def __repr__(self):
         return f'Context(id={self.id})'

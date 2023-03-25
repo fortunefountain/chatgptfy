@@ -116,7 +116,7 @@ class Chatgptfy:
               help="Load templates"
               " from awesome-chatgpt-prompts")
 @click.option('--context-name', help='Context to use')
-@click.option('--message', default='Hello', help='Message to send')
+@click.option('--message', help='Message to send')
 @click.option('--max-tokens', default=150, help='Max tokens to use')
 @click.option('--temperature', default=0.5, help='Temperature to use')
 @click.option('--list-contexts', is_flag=True, help='List contexts')
