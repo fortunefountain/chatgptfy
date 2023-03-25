@@ -3,6 +3,7 @@ import os
 import click
 import csv
 import sys
+import time
 import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -43,7 +44,9 @@ class Chatgptfy:
         template = session.query(Template).filter_by(template_name=template_name).first()
         if template is None:
             raise Exception("Template not found")
-        message = Message(role='system', content=template.content)
+        message = Message(role='system',
+                          content=template.content,
+                          timestamp=time.time())
         return message
 
     def list_templates(self, session):
@@ -99,7 +102,9 @@ class Chatgptfy:
             message = Message(role='assistant',
                               content=content,
                               total_tokens=total_tokens,
-                              finish_reason=finish_reason)
+                              finish_reason=finish_reason,
+                              timestamp=time.time()
+                              )
             return message
         else:
             raise Exception("No response from OpenAI API")
