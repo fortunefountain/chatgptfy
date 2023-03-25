@@ -24,9 +24,12 @@ class Chatgptfy:
         Base.metadata.create_all(self.engine)
 
     def add_context(self, session, context_title):
-        context = Context(title=context_title)
-        session.add(context)
-        session.commit()
+        try:
+            context = Context(title=context_title)
+            session.add(context)
+            session.commit()
+        except Exception:
+            session.rollback()
         context = Context(title=context_title)
         return context
 
@@ -113,81 +116,34 @@ class Chatgptfy:
             raise Exception("No response from OpenAI API")
 
 
-@click.command()
-@click.option('--system', is_flag=True)
+@click.group()
+def main():
+    pass
+
+
+@main.command()
+@click.option('--system', is_flag=True, help="System message")
 @click.option('--template', help="Message from template")
-@click.option('--list-templates',
-              is_flag=True,
-              help="List templates")
-@click.option('--load-templates',
-              is_flag=True,
-              help="Load templates"
-              " from awesome-chatgpt-prompts")
 @click.option('--context-name', help='Context to use')
-@click.option('--message', help='Message to send')
 @click.option('--message-limit', default=5, help='Message limit')
 @click.option('--max-tokens', default=150, help='Max tokens to use')
 @click.option('--temperature', default=0.5, help='Temperature to use')
-@click.option('--list-contexts', is_flag=True, help='List contexts')
-@click.option('--list-messages', help='List messages for context')
-@click.option('--delete-context', help="Delete context")
-@click.option('--init-db', is_flag=True)
-@click.option('--drop-db', is_flag=True)
-def main(system,
-         template,
-         list_templates,
-         load_templates,
-         context_name,
-         message,
-         message_limit,
-         max_tokens,
-         temperature,
-         list_contexts,
-         list_messages,
-         delete_context,
-         init_db,
-         drop_db
-         ):
+@click.argument('message')
+def query(message,
+          system,
+          template,
+          context_name,
+          message_limit,
+          max_tokens,
+          temperature,
+          delete_context,
+          ):
     chatgptfy = Chatgptfy()
     user = 'user'
     session = chatgptfy.get_session()
 
     if system:
         user = 'system'
-    if init_db:
-        chatgptfy.init_database()
-        return
-    if drop_db:
-        chatgptfy.drop_database()
-        return
-    if load_templates:
-        chatgptfy.load_templates(session)
-        return
-    if list_templates:
-        chatgptfy.list_templates(session)
-        return
-    if list_contexts:
-        contexts = chatgptfy.get_contexts(session)
-        for context in contexts:
-            print(context.title)
-        return
-    if list_messages:
-        session = chatgptfy.get_session()
-        context = chatgptfy.get_context(session, list_messages)
-        if context is None:
-            raise Exception("Context not found")
-        messages = chatgptfy.get_messages(session, context, message_limit)
-        for message in messages:
-            print("{}: {}".format(message.role, message.content))
-        return
-    if delete_context:
-        session = chatgptfy.get_session()
-        context = chatgptfy.get_context(session, delete_context)
-        if context is None:
-            raise Exception("Context not found")
-        session.delete(context)
-        session.commit()
-        return
     if sys.stdin.isatty() and not message:
         print("Enter your question: ")
         message = input()
@@ -208,7 +164,7 @@ def main(system,
             context = chatgptfy.get_context(session, context_name)
             if context is None:
                 context = chatgptfy.add_context(session, context_name)
-        messages = chatgptfy.get_messages(session, context)
+        messages = chatgptfy.get_messages(session, context, message_limit)
         message_obj = None
         if template is not None:
             message_obj = chatgptfy.get_message_from_template(session, template)
@@ -230,6 +186,75 @@ def main(system,
         print(response.content)
     except Exception as e:
         print(e)
+
+@main.command()
+@click.option("--init-db", is_flag=True)
+@click.option("--drop-db", is_flag=True)
+@click.option('--load-templates',
+              is_flag=True,
+              help="Load templates"
+              " from awesome-chatgpt-prompts")
+def database(init_db, drop_db, load_templates):
+    chatgptfy = Chatgptfy()
+    session = chatgptfy.get_session()
+    if init_db:
+        chatgptfy.init_database()
+        return
+    if drop_db:
+        chatgptfy.drop_database()
+        return
+    if load_templates:
+        chatgptfy.load_templates(session)
+        return
+
+
+@main.command()
+@click.option('--list-templates', is_flag=True, help="List templates")
+def template(list_templates):
+    chatgptfy = Chatgptfy()
+    session = chatgptfy.get_session()
+    if list_templates:
+        chatgptfy.list_templates(session)
+        return
+
+
+@main.command()
+@click.option('--list-contexts', is_flag=True, help='List contexts')
+@click.option('--list-messages', help='List messages for context')
+@click.option('--context-name', default='default', help='Context to use')
+@click.option('--delete-context', help="Delete context")
+def manager(list_contexts, list_messages, context_name, delete_context):
+    chatgptfy = Chatgptfy()
+    session = chatgptfy.get_session()
+    context = None
+    context = chatgptfy.get_context(session, context_name)
+    if delete_context:
+        session = chatgptfy.get_session()
+        context = chatgptfy.get_context(session, delete_context)
+        if context is None:
+            raise Exception("Context not found")
+        session.delete(context)
+        session.commit()
+        return
+    if context is None:
+        context = chatgptfy.add_context(session, context_name)
+    if list_contexts:
+        contexts = chatgptfy.get_contexts(session)
+        for context in contexts:
+            print(context.title)
+        return
+    if list_messages:
+        session = chatgptfy.get_session()
+        context = chatgptfy.get_context(session, list_messages)
+        if context is None:
+            raise Exception("Context not found")
+        messages = chatgptfy.get_messages(session, context, 10000)
+        for message in messages:
+            print("{}: {}".format(message.role, message.content))
+        return
+
+
+
 
 if __name__ == "__main__":
     main()
