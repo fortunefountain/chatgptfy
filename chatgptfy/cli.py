@@ -119,8 +119,9 @@ class Chatgptfy:
 @click.option('--message', default='Hello', help='Message to send')
 @click.option('--max-tokens', default=150, help='Max tokens to use')
 @click.option('--temperature', default=0.5, help='Temperature to use')
-@click.option('--list-contexts', help='List contexts')
+@click.option('--list-contexts', is_flag=True, help='List contexts')
 @click.option('--list-messages', help='List messages for context')
+@click.option('--delete-context', help="Delete context")
 @click.option('--init-db', is_flag=True)
 @click.option('--drop-db', is_flag=True)
 def main(system,
@@ -133,6 +134,7 @@ def main(system,
          temperature,
          list_contexts,
          list_messages,
+         delete_context,
          init_db,
          drop_db
          ):
@@ -168,6 +170,14 @@ def main(system,
         for message in messages:
             print("{}: {}".format(message.role, message.content))
         return
+    if delete_context:
+        session = chatgptfy.get_session()
+        context = chatgptfy.get_context(session, delete_context)
+        if context is None:
+            raise Exception("Context not found")
+        session.delete(context)
+        session.commit()
+        return
     if sys.stdin.isatty() and not message:
         print("Enter your question: ")
         message = input()
@@ -185,10 +195,9 @@ def main(system,
                 context = chatgptfy.add_context(session, context_name)
                 session.commit()
         else:
-            print(context_name)
             context = chatgptfy.get_context(session, context_name)
-        if context is None:
-            raise Exception("Context not found")
+            if context is None:
+                context = chatgptfy.add_context(session, context_name)
         messages = chatgptfy.get_messages(context)
         message_obj = None
         if template is not None:
