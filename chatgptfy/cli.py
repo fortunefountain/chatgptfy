@@ -1,9 +1,11 @@
 import openai
 import os
 import click
+import csv
+import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base, Context, Message
+from models import Base, Context, Message, Template
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HOME = os.environ.get("HOME")
@@ -21,6 +23,8 @@ class Chatgptfy:
     def add_context(self, session, context_title):
         context = Context(title=context_title)
         session.add(context)
+        session.commit()
+        context = Context(title=context_title)
         return context
 
     def get_context(self, session, context_title):
@@ -34,10 +38,34 @@ class Chatgptfy:
     def get_messages(self, context):
         return context.messages
 
-    def add_message(self, session, context, content, role='user'):
-        message = Message(role=role, content=content)
-        context.messages = [message]
+    def get_message_from_template(self, session, template_name):
+        template = session.query(Template).filter_by(template_name=template_name).first()
+        if template is None:
+            raise Exception("Template not found")
+        message = Message(role='system', content=template.content)
+        return message
+
+    def list_templates(self, session):
+        templates = session.query(Template).all()
+        for template in templates:
+            print("{}: {}\n".format(template.template_name, template.content))
+        return templates
+
+    def load_templates(self, session):
+        url = "https://raw.githubusercontent.com/f/awesome-chatgpt-prompts/main/prompts.csv"
+        response = requests.get(url)
+        if response.status_code == 200:
+            lines = response.text.splitlines()
+            reader = csv.reader(lines)
+            for row in reader:
+                template = Template(template_name=row[0], content=row[1])
+                session.add(template)
+            session.commit()
+
+    def add_message(self, session, context, message):
+        context.messages.append(message)
         session.add(context)
+        session.commit()
 
     def get_session(self):
         Session = sessionmaker(bind=self.engine)
@@ -78,7 +106,15 @@ class Chatgptfy:
 
 @click.command()
 @click.option('--system', is_flag=True)
-@click.option('--context', default='default', help='Context to use')
+@click.option('--template', help="Message from template")
+@click.option('--list-templates',
+              is_flag=True,
+              help="List templates")
+@click.option('--load-templates',
+              is_flag=True,
+              help="Load templates"
+              " from awesome-chatgpt-prompts")
+@click.option('--context-name', help='Context to use')
 @click.option('--message', default='Hello', help='Message to send')
 @click.option('--max-tokens', default=150, help='Max tokens to use')
 @click.option('--temperature', default=0.5, help='Temperature to use')
@@ -87,7 +123,10 @@ class Chatgptfy:
 @click.option('--init-db', is_flag=True)
 @click.option('--drop-db', is_flag=True)
 def main(system,
-         context,
+         template,
+         list_templates,
+         load_templates,
+         context_name,
          message,
          max_tokens,
          temperature,
@@ -98,6 +137,8 @@ def main(system,
          ):
     chatgptfy = Chatgptfy()
     user = 'user'
+    session = chatgptfy.get_session()
+
     if system:
         user = 'system'
     if init_db:
@@ -106,8 +147,13 @@ def main(system,
     if drop_db:
         chatgptfy.drop_database()
         return
+    if load_templates:
+        chatgptfy.load_templates(session)
+        return
+    if list_templates:
+        chatgptfy.list_templates(session)
+        return
     if list_contexts:
-        session = chatgptfy.get_session()
         contexts = chatgptfy.get_contexts(session)
         for context in contexts:
             print(context.title)
@@ -116,32 +162,44 @@ def main(system,
         session = chatgptfy.get_session()
         context = chatgptfy.get_context(session, list_messages)
         if context is None:
-            print("No context found")
-            return
+            raise Exception("Context not found")
         messages = chatgptfy.get_messages(context)
         for message in messages:
-            print(message.role, message.content)
+            print("{}: {}".format(message.role, message.content))
         return
     else:
         session = chatgptfy.get_session()
-        context = chatgptfy.get_context(session, context)
-        if not context:
-            context = chatgptfy.add_context(session, "default")
-        chatgptfy.add_message(session, context, message)
+        context = None
+        if context_name is None:
+            context_name = "default"
+            context = chatgptfy.get_context(session, context_name)
+            if context is None:
+                context = chatgptfy.add_context(session, context_name)
+                session.commit()
+        else:
+            print(context_name)
+            context = chatgptfy.get_context(session, context_name)
+        if context is None:
+            raise Exception("Context not found")
         messages = chatgptfy.get_messages(context)
-        message = Message(role=user, content=message)
-        messages.append(message)
+        message_obj = None
+        if template is not None:
+            message_obj = chatgptfy.get_message_from_template(session, template)
+            context.messages.append(message_obj)
+        else:
+            message_obj = Message(role=user, content=message)
+        messages.append(message_obj)
         response = chatgptfy.send_question_to_chatgpt_api(
             messages,
             max_tokens=max_tokens,
             temprature=temperature
             )
-        chatgptfy.add_message(session, message.context, message.role)
         chatgptfy.add_message(session,
                               context,
-                              response.content,
-                              role='assistant')
-        session.commit()
+                              message_obj)
+        chatgptfy.add_message(session,
+                              context,
+                              response)
         print(response.content)
 
 

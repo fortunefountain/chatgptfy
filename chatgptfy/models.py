@@ -23,7 +23,7 @@ class Message(Base):
     __tablename__ = 'message'
     id = Column(Integer, primary_key=True)
     role = Column(String(50))
-    content = Column(String(50))
+    content = Column(String(4096))
     timestamp = Column(String(50))
     total_tokens = Column(Integer)
     finish_reason = Column(String(50))
@@ -40,3 +40,10 @@ class Message(Base):
                     context_id={self.context_id}
                  )
                """
+
+
+class Template(Base):
+    __tablename__ = 'template'
+    id = Column(Integer, primary_key=True)
+    template_name = Column(String(50))
+    content = Column(String(4096))
