@@ -43,6 +43,9 @@ class Chatgptfy:
         session = Session()
         return session
 
+    def drop_database(self):
+        Base.metadata.drop_all(self.engine)
+
     # def send_question_to_chatgpt_api(
     #         self,
     #         messages,
