@@ -128,7 +128,7 @@ def main():
 @click.option('--message-limit', default=5, help='Message limit')
 @click.option('--max-tokens', default=150, help='Max tokens to use')
 @click.option('--temperature', default=0.5, help='Temperature to use')
-@click.argument('message')
+@click.argument('message', required=False)
 def query(message,
           system,
           template,
@@ -143,7 +143,7 @@ def query(message,
 
     if system:
         user = 'system'
-    if sys.stdin.isatty() and not message:
+    if sys.stdin.isatty() and not message and not template:
         print("Enter your question: ")
         message = input()
     elif message:
