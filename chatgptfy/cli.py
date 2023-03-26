@@ -25,6 +25,7 @@ class Chatgptfy:
 
     def add_context(self, session, context_title):
         try:
+            print(context_title)
             context = Context(title=context_title)
             session.add(context)
             session.commit()
@@ -74,7 +75,6 @@ class Chatgptfy:
 
     def add_message(self, session, context, message):
         context.messages.append(message)
-        session.add(context)
         session.commit()
 
     def get_session(self):
@@ -124,7 +124,7 @@ def main():
 @main.command()
 @click.option('--system', is_flag=True, help="System message")
 @click.option('--template', help="Message from template")
-@click.option('--context-name', help='Context to use')
+@click.option('--context-name', default="default", help='Context to use')
 @click.option('--message-limit', default=5, help='Message limit')
 @click.option('--max-tokens', default=150, help='Max tokens to use')
 @click.option('--temperature', default=0.5, help='Temperature to use')
@@ -136,7 +136,6 @@ def query(message,
           message_limit,
           max_tokens,
           temperature,
-          delete_context,
           ):
     chatgptfy = Chatgptfy()
     user = 'user'
@@ -154,16 +153,10 @@ def query(message,
     try:
         session = chatgptfy.get_session()
         context = None
-        if context_name is None:
-            context_name = "default"
-            context = chatgptfy.get_context(session, context_name)
-            if context is None:
-                context = chatgptfy.add_context(session, context_name)
-                session.commit()
-        else:
-            context = chatgptfy.get_context(session, context_name)
-            if context is None:
-                context = chatgptfy.add_context(session, context_name)
+        context = chatgptfy.get_context(session, context_name)
+        if context is None:
+            context = chatgptfy.add_context(session, context_name)
+            session.commit()
         messages = chatgptfy.get_messages(session, context, message_limit)
         message_obj = None
         if template is not None:
