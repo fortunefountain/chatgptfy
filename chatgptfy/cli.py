@@ -28,10 +28,10 @@ class Chatgptfy:
             context = Context(title=context_title)
             session.add(context)
             session.commit()
-        except Exception:
+            return context
+        except Exception as e:
+            print(e)
             session.rollback()
-        context = Context(title=context_title)
-        return context
 
     def get_context(self, session, context_title):
         context = session.query(Context).filter_by(title=context_title).first()
@@ -75,7 +75,6 @@ class Chatgptfy:
     def add_message(self, session, context, message):
         context.messages.append(message)
         session.add_all([context, message])
-        session.commit()
 
     def get_session(self):
         Session = sessionmaker(bind=self.engine)
@@ -156,8 +155,8 @@ def query(message,
         context = chatgptfy.get_context(session, context_name)
         if context is None:
             context = chatgptfy.add_context(session, context_name)
-            session.commit()
         messages = chatgptfy.get_messages(session, context, message_limit)
+        session.commit()
         message_obj = None
         if template is not None:
             message_obj = chatgptfy.get_message_from_template(session, template)
@@ -176,6 +175,7 @@ def query(message,
         chatgptfy.add_message(session,
                               context,
                               response)
+        session.commit()
         print(response.content)
     except Exception as e:
         print(e)
