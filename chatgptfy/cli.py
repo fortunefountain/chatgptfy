@@ -217,35 +217,37 @@ def template(list_templates):
 @click.option('--context-name', default='default', help='Context to use')
 @click.option('--delete-context', help="Delete context")
 def manager(list_contexts, list_messages, context_name, delete_context):
-    chatgptfy = Chatgptfy()
-    session = chatgptfy.get_session()
-    context = None
-    context = chatgptfy.get_context(session, context_name)
-    if delete_context:
+    try:
+        chatgptfy = Chatgptfy()
         session = chatgptfy.get_session()
-        context = chatgptfy.get_context(session, delete_context)
+        context = None
+        context = chatgptfy.get_context(session, context_name)
+        if delete_context:
+            session = chatgptfy.get_session()
+            context = chatgptfy.get_context(session, delete_context)
+            if context is None:
+                raise Exception("Context not found")
+            session.delete(context)
+            session.commit()
+            return
         if context is None:
-            raise Exception("Context not found")
-        session.delete(context)
-        session.commit()
-        return
-    if context is None:
-        context = chatgptfy.add_context(session, context_name)
-    if list_contexts:
-        contexts = chatgptfy.get_contexts(session)
-        for context in contexts:
-            print(context.title)
-        return
-    if list_messages:
-        session = chatgptfy.get_session()
-        context = chatgptfy.get_context(session, list_messages)
-        if context is None:
-            raise Exception("Context not found")
-        messages = chatgptfy.get_messages(session, context, 10000)
-        for message in messages:
-            print("{}: {}".format(message.role, message.content))
-        return
-
+            context = chatgptfy.add_context(session, context_name)
+        if list_contexts:
+            contexts = chatgptfy.get_contexts(session)
+            for context in contexts:
+                print(context.title)
+            return
+        if list_messages:
+            session = chatgptfy.get_session()
+            context = chatgptfy.get_context(session, list_messages)
+            if context is None:
+                raise Exception("Context not found")
+            messages = chatgptfy.get_messages(session, context, 10000)
+            for message in messages:
+                print("{}: {}".format(message.role, message.content))
+            return
+    except Exception as e:
+        print(e)
 
 
 
