@@ -25,7 +25,6 @@ class Chatgptfy:
 
     def add_context(self, session, context_title):
         try:
-            print(context_title)
             context = Context(title=context_title)
             session.add(context)
             session.commit()
@@ -75,6 +74,7 @@ class Chatgptfy:
 
     def add_message(self, session, context, message):
         context.messages.append(message)
+        session.add_all([context, message])
         session.commit()
 
     def get_session(self):
